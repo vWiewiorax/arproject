@@ -309,8 +309,8 @@ export function UploadWizard({
               <p className="mt-1 text-sm text-slate-500">Your 3D model was generated successfully.</p>
 
               <div className="relative mt-6 aspect-video overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-100 via-slate-100 to-violet-100">
-                <div className="absolute inset-0 grid place-items-center blur-md">
-                  <Box className="size-28 text-indigo-400" strokeWidth={1.25} />
+                <div className="absolute inset-0 grid place-items-center blur-[6px]">
+                  <Box className="size-36 text-indigo-500/80" strokeWidth={1.5} />
                 </div>
                 <div className="absolute inset-0 grid place-items-center">
                   <div className="flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm backdrop-blur">

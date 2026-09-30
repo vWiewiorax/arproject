@@ -7,7 +7,7 @@ export function ScanChart({ data }: { data: number[] }) {
   const w = 600;
   const h = 180;
   const pad = { t: 12, b: 24, l: 0, r: 0 };
-  const max = Math.max(...data) * 1.15;
+  const max = Math.max(1, ...data) * 1.15;
   const x = (i: number) => pad.l + (i / (data.length - 1)) * (w - pad.l - pad.r);
   const y = (v: number) => pad.t + (1 - v / max) * (h - pad.t - pad.b);
   const line = data.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");

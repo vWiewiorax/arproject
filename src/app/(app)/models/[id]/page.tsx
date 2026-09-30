@@ -167,6 +167,31 @@ export default function ModelDetailPage() {
                     <Download className="size-4" aria-hidden /> Download QR (SVG)
                   </Button>
                 </div>
+                <div className="border-t border-slate-100 pt-3">
+                  <p id="qr-color" className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                    Customize color
+                  </p>
+                  <div role="radiogroup" aria-labelledby="qr-color" className="mt-2 flex gap-3">
+                    {swatches.map((s) => (
+                      <button
+                        key={s.value}
+                        role="radio"
+                        aria-checked={color === s.value}
+                        aria-label={s.name}
+                        title={s.name}
+                        tabIndex={locked ? -1 : 0}
+                        onClick={() => setColor(s.value)}
+                        className={cn(
+                          "grid size-9 place-items-center rounded-full ring-offset-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
+                          s.className,
+                          color === s.value ? "ring-2 ring-slate-900/80" : "hover:scale-110",
+                        )}
+                      >
+                        {color === s.value && <Check className="size-4 text-white" strokeWidth={3} aria-hidden />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
             {locked && (
@@ -183,51 +208,24 @@ export default function ModelDetailPage() {
             )}
           </Card>
 
-          <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
-            <Card className="p-5">
-              <label htmlFor="share-link" className="text-sm font-semibold text-slate-900">
-                Share link
-              </label>
-              <div className="mt-3 flex gap-2">
-                <input
-                  id="share-link"
-                  readOnly
-                  value={locked ? "Unlock to generate link" : url}
-                  onFocus={(e) => e.currentTarget.select()}
-                  className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 font-mono text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/15"
-                />
-                <Button size="sm" className="h-10" onClick={copyLink} disabled={locked}>
-                  {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
-                  {copied ? "Copied" : "Copy Link"}
-                </Button>
-              </div>
-            </Card>
-
-            <Card className="p-5">
-              <p id="qr-color" className="text-sm font-semibold text-slate-900">
-                QR color
-              </p>
-              <div role="radiogroup" aria-labelledby="qr-color" className="mt-3 flex gap-3">
-                {swatches.map((s) => (
-                  <button
-                    key={s.value}
-                    role="radio"
-                    aria-checked={color === s.value}
-                    aria-label={s.name}
-                    title={s.name}
-                    onClick={() => setColor(s.value)}
-                    className={cn(
-                      "grid size-10 place-items-center rounded-full ring-offset-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
-                      s.className,
-                      color === s.value ? "ring-2 ring-slate-900/80" : "hover:scale-110",
-                    )}
-                  >
-                    {color === s.value && <Check className="size-4 text-white" strokeWidth={3} aria-hidden />}
-                  </button>
-                ))}
-              </div>
-            </Card>
-          </div>
+          <Card className="p-5">
+            <label htmlFor="share-link" className="text-sm font-semibold text-slate-900">
+              Share link
+            </label>
+            <div className="mt-3 flex gap-2">
+              <input
+                id="share-link"
+                readOnly
+                value={locked ? "Unlock to generate your link" : url}
+                onFocus={(e) => e.currentTarget.select()}
+                className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 font-mono text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/15"
+              />
+              <Button onClick={copyLink} disabled={locked} className="shrink-0">
+                {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+                {copied ? "Copied" : "Copy Link"}
+              </Button>
+            </div>
+          </Card>
 
           <Card className="p-5">
             <div className="flex items-start justify-between">
@@ -242,7 +240,13 @@ export default function ModelDetailPage() {
               )}
             </div>
             <div className="mt-4">
-              <ScanChart data={series} />
+              {locked ? (
+                <div className="grid h-44 place-items-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-400">
+                  Scans will appear here once the model is live.
+                </div>
+              ) : (
+                <ScanChart data={series} />
+              )}
             </div>
           </Card>
         </div>
