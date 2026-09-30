@@ -3,9 +3,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
 import { env } from "@/lib/server/env";
 import { SIGNATURE_HEADER, parseEnginePayload, verifySignature } from "@/lib/server/engine-webhook";
-import { ASSET_LIMITS, PermanentAssetError, assertGlb, assertUsdz, compressGlb, downloadAsset } from "@/lib/server/assets";
-import { uploadModelAsset } from "@/lib/server/storage";
-import { viewerSlug } from "@/lib/server/slug";
+import { ASSET_LIMITS, PermanentAssetError, downloadAsset } from "@/lib/server/assets";
+import { completeModel, markFailed } from "@/lib/server/model-completion";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +20,7 @@ const json = (body: Record<string, unknown>, status = 200) => NextResponse.json(
  * 5xx  -> transient failure (network, S3, DB); the engine should retry the delivery.
  */
 export async function POST(req: Request) {
-  const { ENGINE_WEBHOOK_SECRET, ENGINE_ASSET_HOSTS, VIEWER_BASE_URL } = env();
+  const { ENGINE_WEBHOOK_SECRET, ENGINE_ASSET_HOSTS } = env();
 
   const rawBody = await req.text();
   if (!verifySignature(rawBody, req.headers.get(SIGNATURE_HEADER), ENGINE_WEBHOOK_SECRET)) {
@@ -53,41 +52,7 @@ export async function POST(req: Request) {
       downloadAsset(payload.assets.glb, ENGINE_ASSET_HOSTS, ASSET_LIMITS.glb),
       payload.assets.usdz ? downloadAsset(payload.assets.usdz, ENGINE_ASSET_HOSTS, ASSET_LIMITS.usdz) : null,
     ]);
-    assertGlb(glbRaw);
-    if (usdz) assertUsdz(usdz);
-
-    const glb = await compressGlb(glbRaw);
-
-    const [glbS3Url, usdzS3Url] = await Promise.all([
-      uploadModelAsset(model.id, "glb", glb, "model/gltf-binary"),
-      usdz ? uploadModelAsset(model.id, "usdz", usdz, "model/vnd.usdz+zip") : null,
-    ]);
-
-    const slug = model.viewerSlug ?? viewerSlug();
-
-    // Status guard makes concurrent duplicate deliveries safe: only one flips PROCESSING -> COMPLETED.
-    const { count } = await prisma.model.updateMany({
-      where: { id: model.id, status: "PROCESSING" },
-      data: {
-        status: "COMPLETED",
-        glbS3Url,
-        usdzS3Url,
-        glbSizeBytes: glb.byteLength,
-        viewerSlug: slug,
-        completedAt: new Date(),
-        failureReason: null,
-      },
-    });
-    if (count === 0) return json({ status: "ignored", reason: "completed by a concurrent delivery" });
-
-    return json({
-      status: "completed",
-      modelId: model.id,
-      viewerUrl: `${VIEWER_BASE_URL}/v/${slug}`,
-      glbS3Url,
-      usdzS3Url,
-      compression: { originalBytes: glbRaw.byteLength, storedBytes: glb.byteLength },
-    });
+    return json(await completeModel(model, glbRaw, usdz));
   } catch (err) {
     if (err instanceof PermanentAssetError) {
       await markFailed(model.id, err.message);
@@ -103,9 +68,3 @@ export async function POST(req: Request) {
   }
 }
 
-async function markFailed(modelId: string, reason: string) {
-  await prisma.model.updateMany({
-    where: { id: modelId, status: "PROCESSING" },
-    data: { status: "FAILED", failureReason: reason.slice(0, 1000) },
-  });
-}

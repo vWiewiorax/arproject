@@ -3,14 +3,14 @@ import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { dedup, draco, prune, weld } from "@gltf-transform/functions";
 import draco3d from "draco3dgltf";
+import { HostNotAllowedError, PermanentAssetError } from "@/lib/server/errors";
 
-/** The asset itself is unusable (bad host, too big, corrupt). Retrying the webhook won't help. */
-export class PermanentAssetError extends Error {}
+export { HostNotAllowedError, PermanentAssetError };
 
 const MAX_REDIRECTS = 3;
 const DOWNLOAD_TIMEOUT_MS = 90_000;
 
-export const ASSET_LIMITS = { glb: 150 * 1024 * 1024, usdz: 150 * 1024 * 1024 } as const;
+export const ASSET_LIMITS = { glb: 150 * 1024 * 1024, usdz: 150 * 1024 * 1024, zip: 300 * 1024 * 1024 } as const;
 
 function assertAllowedUrl(raw: string, allowedHosts: string[]) {
   let url: URL;
@@ -22,7 +22,7 @@ function assertAllowedUrl(raw: string, allowedHosts: string[]) {
   const insecureOk = process.env.NODE_ENV !== "production" && url.protocol === "http:";
   if (url.protocol !== "https:" && !insecureOk) throw new PermanentAssetError(`Asset URL must be https`);
   if (!allowedHosts.includes(url.hostname.toLowerCase())) {
-    throw new PermanentAssetError(`Asset host ${url.hostname} is not in ENGINE_ASSET_HOSTS`);
+    throw new HostNotAllowedError(`Asset host ${url.hostname} is not in ENGINE_ASSET_HOSTS`);
   }
   return url;
 }
