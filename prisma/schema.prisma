@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Tier {
+  FREE
+  PRO
+  BUSINESS
+}
+
+enum ModelStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum DeviceOs {
+  IOS
+  ANDROID
+  OTHER
+}
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  stripeCustomerId String?  @unique @map("stripe_customer_id")
+  creditsRemaining Int      @default(0) @map("credits_remaining")
+  tier             Tier     @default(FREE)
+  createdAt        DateTime @default(now()) @map("created_at")
+  models           Model[]
+
+  @@map("users")
+}
+
+model Model {
+  id             String      @id @default(cuid())
+  userId         String      @map("user_id")
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  status         ModelStatus @default(PROCESSING)
+  videoSourceUrl String      @map("video_source_url")
+  engineJobId    String?     @unique @map("engine_job_id")
+  glbS3Url       String?     @map("glb_s3_url")
+  usdzS3Url      String?     @map("usdz_s3_url")
+  glbSizeBytes   Int?        @map("glb_size_bytes")
+  viewerSlug     String?     @unique @map("viewer_slug")
+  qrColorHex     String      @default("#0f172a") @map("qr_color_hex")
+  failureReason  String?     @map("failure_reason")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  completedAt    DateTime?   @map("completed_at")
+  scans          ScanEvent[]
+
+  @@index([userId, createdAt])
+  @@map("models")
+}
+
+model ScanEvent {
+  id          String   @id @default(cuid())
+  modelId     String   @map("model_id")
+  model       Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  scannedAt   DateTime @default(now()) @map("scanned_at_timestamp")
+  deviceOs    DeviceOs @map("device_os")
+  countryCode String?  @map("country_code") @db.Char(2)
+
+  @@index([modelId, scannedAt])
+  @@map("analytics")
+}

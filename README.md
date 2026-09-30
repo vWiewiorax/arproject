@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Arcade3D — 3D / WebAR generation SaaS
 
-## Getting Started
+Next.js 15 (App Router) · Tailwind 4 · Prisma/PostgreSQL · S3 or Cloudflare R2.
 
-First, run the development server:
+## Setup
 
 ```bash
+cp .env.example .env      # fill in DB, S3/R2, webhook secret
+npm install               # runs prisma generate
+npm run db:migrate
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 3D engine webhook — `POST /api/webhooks/engine`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Source: `src/app/api/webhooks/engine/route.ts`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Verifies `x-engine-signature: t=<unix>,v1=<hex>` = HMAC-SHA256(`ENGINE_WEBHOOK_SECRET`, `"<t>.<raw body>"`), 5 min replay window.
+2. Validates the payload (`src/lib/server/engine-webhook.ts`):
+   ```json
+   { "event_id": "evt_1", "job_id": "luma_123", "status": "completed",
+     "assets": { "glb": "https://…/model.glb", "usdz": "https://…/model.usdz" } }
+   ```
+   or `{ "event_id", "job_id", "status": "failed", "error": "…" }`. Luma/Polycam payloads should be mapped to this shape.
+3. Looks up the `Model` by `engineJobId`; already-handled jobs return `200 ignored` (at-least-once delivery safe).
+4. Downloads `.glb` / `.usdz` (host allowlist `ENGINE_ASSET_HOSTS` re-checked on redirects, 150 MB cap, 90 s timeout), validates file magic, Draco-compresses the `.glb`.
+5. Uploads to S3/R2 under content-addressed keys `models/<modelId>/<sha256>.glb` with `immutable` cache headers.
+6. Atomically flips `PROCESSING → COMPLETED` with the CDN URLs and a random 10-char `viewerSlug`; the QR code encodes `VIEWER_BASE_URL/v/<viewerSlug>`.
 
-## Learn More
+Responses: `2xx` handled (don't retry) · `4xx` bad request · `5xx` transient error (engine should retry). Corrupt / disallowed assets mark the model `FAILED` with `failureReason`.
 
-To learn more about Next.js, take a look at the following resources:
+## Tests
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm test
+```
